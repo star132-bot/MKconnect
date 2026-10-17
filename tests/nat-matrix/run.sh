@@ -59,46 +59,76 @@ host_ip() { echo "10.$(side_index "$1").0.2"; }
 # 路由器上的 nftables 规则，决定 NAT 类型。
 nat_rules() {
     local type=$1 host=$2
-    local filter_strict="table inet mkfilter {
-        chain forward {
-            type filter hook forward priority 0; policy drop;
-            ct state established,related accept
-            iifname \"lan\" accept
-        }
-    }"
     case $type in
     none)
-        echo "table inet mkfilter { chain forward { type filter hook forward priority 0; policy accept; } }"
+        cat <<EOF
+table inet mkfilter {
+    chain forward {
+        type filter hook forward priority 0; policy accept;
+    }
+}
+EOF
+        return
         ;;
     fullcone)
         cat <<EOF
 table ip mknat {
-    chain post { type nat hook postrouting priority 100; oifname "wan" masquerade; }
-    chain pre { type nat hook prerouting priority -100; iifname "wan" meta l4proto udp dnat to $host; }
-}
-table inet mkfilter {
-    chain forward {
-        type filter hook forward priority 0; policy drop;
-        ct state established,related accept
-        iifname "lan" accept
-        iifname "wan" ip daddr $host meta l4proto udp accept
+    chain post {
+        type nat hook postrouting priority 100;
+        oifname "wan" masquerade
+    }
+    chain pre {
+        type nat hook prerouting priority -100;
+        iifname "wan" meta l4proto udp dnat to $host
     }
 }
 EOF
         ;;
     restricted)
-        echo "table ip mknat { chain post { type nat hook postrouting priority 100; oifname \"wan\" masquerade; } }"
-        echo "$filter_strict"
+        cat <<EOF
+table ip mknat {
+    chain post {
+        type nat hook postrouting priority 100;
+        oifname "wan" masquerade
+    }
+}
+EOF
         ;;
     symmetric)
-        echo "table ip mknat { chain post { type nat hook postrouting priority 100; oifname \"wan\" masquerade fully-random; } }"
-        echo "$filter_strict"
+        cat <<EOF
+table ip mknat {
+    chain post {
+        type nat hook postrouting priority 100;
+        oifname "wan" masquerade fully-random
+    }
+}
+EOF
         ;;
     *)
         echo "未知 NAT 类型：$type" >&2
         exit 2
         ;;
     esac
+
+    # 有 NAT 的路由器只放行已建立的连接；完全锥形额外放行所有发往主机的 UDP。
+    # 发给路由器自身的陌生入站包直接丢弃，和家用路由器的防火墙一致。
+    # 若不丢弃，Linux 会为它留下连接跟踪记录，之后同一对地址的出站包会被换端口，打洞随之失败。
+    local fullcone_accept=""
+    [[ $type == fullcone ]] && fullcone_accept="iifname \"wan\" ip daddr $host meta l4proto udp accept"
+    cat <<EOF
+table inet mkfilter {
+    chain input {
+        type filter hook input priority 0; policy accept;
+        iifname "wan" ct state new drop
+    }
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+        ct state established,related accept
+        iifname "lan" accept
+        $fullcone_accept
+    }
+}
+EOF
 }
 
 setup_topology() {
