@@ -1,0 +1,35 @@
+name: NAT 矩阵
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  nat-matrix:
+    name: 4×4 NAT 组合连通性
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: 安装系统工具
+        run: sudo apt-get update && sudo apt-get install -y nftables jq
+      - name: 安装自建中继 iroh-relay
+        run: cargo install iroh-relay --version 1.3.0 --features server --locked
+      - name: 编译 mk
+        run: cargo build --release --locked
+      - name: 运行 NAT 矩阵
+        run: >
+          sudo -E env "PATH=$PATH" OUT=nat-matrix-results
+          tests/nat-matrix/run.sh target/release/mk "$(command -v iroh-relay)"
+      - name: 上传结果与日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nat-matrix-results
+          path: nat-matrix-results

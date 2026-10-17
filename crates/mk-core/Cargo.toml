@@ -1,0 +1,25 @@
+[package]
+name = "mk-core"
+description = "MKconnect 核心库：设备身份、连接建立、协议与传输，与平台无关"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+iroh.workspace = true
+n0-future.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+postcard.workspace = true
+data-encoding.workspace = true
+blake3.workspace = true
+bytes.workspace = true
+rustls-pki-types.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

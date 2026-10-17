@@ -1,0 +1,20 @@
+[package]
+name = "mk-cli"
+description = "MKconnect 命令行工具 mk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "mk"
+path = "src/main.rs"
+
+[dependencies]
+mk-core.workspace = true
+iroh.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tracing-subscriber.workspace = true
